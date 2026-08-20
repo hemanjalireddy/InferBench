@@ -4,6 +4,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import uuid4
 
+try:
+    import psutil
+except ModuleNotFoundError:
+    psutil = None
+
 from inferbench.core.backend import InferenceBackend
 from inferbench.core.metrics import calculate_metrics
 
@@ -63,6 +68,10 @@ class BenchmarkRecord:
     backend_metadata: dict[str, ParameterValue]
     generation_metadata: dict[str, ParameterValue]
 
+    process_rss_mb: float | None
+    process_memory_delta_mb: float | None
+    process_cpu_percent: float | None
+
 
 class BenchmarkRunner:
     """
@@ -98,6 +107,7 @@ class BenchmarkRunner:
         self.warmup_runs = warmup_runs
         self.repetitions = repetitions
         self.run_id = run_id or str(uuid4())
+        self.process = psutil.Process() if psutil is not None else None
 
     def _warmup(
         self,
@@ -146,10 +156,28 @@ class BenchmarkRunner:
                 end="\r",
             )
 
+            if self.process is not None:
+                memory_before = self.process.memory_info().rss
+                self.process.cpu_percent(interval=None)
+            else:
+                memory_before = None
+
             result = self.backend.generate(
                 prompt=case.prompt,
                 max_new_tokens=case.max_new_tokens,
             )
+
+            if self.process is not None and memory_before is not None:
+                memory_after = self.process.memory_info().rss
+                cpu_percent = self.process.cpu_percent(interval=None)
+                process_rss_mb = memory_after / (1024 * 1024)
+                process_memory_delta_mb = (
+                    (memory_after - memory_before) / (1024 * 1024)
+                )
+            else:
+                cpu_percent = None
+                process_rss_mb = None
+                process_memory_delta_mb = None
 
             metrics = calculate_metrics(
                 result
@@ -192,6 +220,10 @@ class BenchmarkRunner:
                 backend_name=self.backend.name,
                 backend_metadata=self.backend.metadata,
                 generation_metadata=result.metadata,
+
+                process_rss_mb=process_rss_mb,
+                process_memory_delta_mb=process_memory_delta_mb,
+                process_cpu_percent=cpu_percent,
             )
 
             records.append(

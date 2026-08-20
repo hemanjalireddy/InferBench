@@ -64,6 +64,100 @@ poetry run inferbench prompt-length `
   --threads 4
 ```
 
+For a tiny sanity run:
+
+```powershell
+poetry run inferbench prompt-length --preset quick
+```
+
+To measure uncached decode, run the same experiment with `--no-kv-cache` into a
+separate output directory:
+
+```powershell
+poetry run inferbench prompt-length `
+  --model sshleifer/tiny-gpt2 `
+  --tokens 32,64,128,256 `
+  --max-new-tokens 16 `
+  --warmups 1 `
+  --repetitions 3 `
+  --threads 4 `
+  --no-kv-cache `
+  --output-dir results/prompt_length_no_kv_cache
+```
+
+The current CPU PyTorch backend uses regular PyTorch attention. Flash Attention is
+recorded as disabled in result metadata and is not exposed as a CPU benchmark
+mode yet. It should be added later through a GPU/runtime-specific backend rather
+than silently pretending the CPU path used Flash Attention.
+
+You can still compare PyTorch attention implementations that are meaningful for
+this backend:
+
+```powershell
+poetry run inferbench attention `
+  --model sshleifer/tiny-gpt2 `
+  --tokens 32,64,128,256 `
+  --max-new-tokens 16 `
+  --warmups 1 `
+  --repetitions 3 `
+  --backends torch_default,eager,sdpa `
+  --output-dir results/attention
+```
+
+## More Experiments
+
+Output-length scaling:
+
+```powershell
+poetry run inferbench output-length `
+  --model sshleifer/tiny-gpt2 `
+  --prompt-tokens 128 `
+  --outputs 8,16,32,64 `
+  --output-dir results/output_length
+```
+
+CPU thread scaling:
+
+```powershell
+poetry run inferbench thread-scaling `
+  --model sshleifer/tiny-gpt2 `
+  --thread-counts 1,2,4,8 `
+  --tokens 128 `
+  --output-dir results/thread_scaling
+```
+
+PyTorch eager vs `torch.compile`:
+
+```powershell
+poetry run inferbench compile `
+  --model sshleifer/tiny-gpt2 `
+  --tokens 128 `
+  --output-dir results/compile
+```
+
+Regression comparison:
+
+```powershell
+poetry run inferbench compare `
+  --baseline results/prompt_length/results.csv `
+  --candidate results/prompt_length_no_kv_cache/results.csv `
+  --threshold 10
+```
+
+Experimental llama.cpp subprocess backend:
+
+```powershell
+poetry run inferbench llama-cpp `
+  --executable C:\path\to\llama-cli.exe `
+  --model-path C:\path\to\model.gguf `
+  --tokens 32,64 `
+  --max-new-tokens 16 `
+  --output-dir results/llama_cpp
+```
+
+The llama.cpp adapter currently treats TTFT as approximate unless richer timing
+output is parsed from the runtime.
+
 This writes:
 
 ```text
@@ -79,9 +173,14 @@ results/prompt_length/plots/*.png
 poetry run inferbench dashboard
 ```
 
-The Streamlit dashboard reads `results/prompt_length/results.csv` by default and
-shows TTFT, TPOT, decode throughput, approximate prefill throughput, summary tables,
-and raw benchmark rows.
+The Streamlit dashboard reads `results/prompt_length/results.csv` by default. Use
+the sidebar to enable comparison mode and point it at another CSV, such as
+`results/prompt_length_no_kv_cache/results.csv`. Above the plots, use the KV-cache
+view control to switch between all rows, only cached rows, or only uncached rows.
+The dashboard shows overlaid TTFT, TPOT, decode throughput, prefill throughput,
+best-by-metric winners, workload-weighted scoring, side-by-side deltas, summary
+tables, run metadata, discovered `results/**/results.csv` files, and raw
+benchmark rows.
 
 ## Static Plots
 
@@ -102,6 +201,7 @@ from inferbench.storage.results import save_records_to_csv
 backend = PyTorchBackend(
     "sshleifer/tiny-gpt2",
     num_threads=4,
+    use_kv_cache=True,
 )
 backend.load_model()
 

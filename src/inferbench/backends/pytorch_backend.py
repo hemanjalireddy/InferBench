@@ -16,10 +16,14 @@ class PyTorchBackend(InferenceBackend):
         *,
         num_threads: int | None = None,
         compile_model: bool = False,
+        use_kv_cache: bool = True,
+        attention_backend: str = "torch_default",
     ):
         self.model_name = model_name
         self.num_threads = num_threads
         self.compile_model = compile_model
+        self.use_kv_cache = use_kv_cache
+        self.attention_backend = attention_backend
 
         self.device = torch.device("cpu")
 
@@ -35,6 +39,9 @@ class PyTorchBackend(InferenceBackend):
             "device": str(self.device),
             "num_threads": self.num_threads or torch.get_num_threads(),
             "compile_model": self.compile_model,
+            "use_kv_cache": self.use_kv_cache,
+            "attention_backend": self.attention_backend,
+            "flash_attention": False,
             "torch_version": torch.__version__,
         }
 
@@ -51,8 +58,14 @@ class PyTorchBackend(InferenceBackend):
             self.model_name
         )
 
+        model_kwargs = {}
+
+        if self.attention_backend != "torch_default":
+            model_kwargs["attn_implementation"] = self.attention_backend
+
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name
+            self.model_name,
+            **model_kwargs,
         )
 
         self.model = self.model.to(self.device)
@@ -116,6 +129,7 @@ class PyTorchBackend(InferenceBackend):
         current_input_ids = input_ids
 
         current_attention_mask = attention_mask
+        full_input_ids = input_ids
 
         start_time = time.perf_counter()
 
@@ -129,7 +143,7 @@ class PyTorchBackend(InferenceBackend):
                     input_ids=current_input_ids,
                     attention_mask=current_attention_mask,
                     past_key_values=past_key_values,
-                    use_cache=True,
+                    use_cache=self.use_kv_cache,
                 )
 
                 logits = outputs.logits[:, -1, :]
@@ -145,7 +159,8 @@ class PyTorchBackend(InferenceBackend):
 
                 generated_tokens.append(next_token)
 
-                past_key_values = outputs.past_key_values
+                if self.use_kv_cache:
+                    past_key_values = outputs.past_key_values
 
                 if (
                     self.tokenizer.eos_token_id is not None
@@ -154,7 +169,17 @@ class PyTorchBackend(InferenceBackend):
                 ):
                     break
 
-                current_input_ids = next_token
+                if self.use_kv_cache:
+                    current_input_ids = next_token
+                else:
+                    full_input_ids = torch.cat(
+                        [
+                            full_input_ids,
+                            next_token,
+                        ],
+                        dim=1,
+                    )
+                    current_input_ids = full_input_ids
 
                 new_mask_value = torch.ones(
                     (current_attention_mask.shape[0], 1),
@@ -199,6 +224,9 @@ class PyTorchBackend(InferenceBackend):
             ttft_seconds=first_token_time - start_time,
             total_latency_seconds=end_time - start_time,
             metadata={
+                "use_kv_cache": self.use_kv_cache,
+                "attention_backend": self.attention_backend,
+                "flash_attention": False,
                 "eos_reached": (
                     bool(generated_tokens)
                     and self.tokenizer.eos_token_id is not None
