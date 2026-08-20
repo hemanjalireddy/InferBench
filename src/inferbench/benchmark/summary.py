@@ -130,3 +130,23 @@ def summarize_records(
             else None
         ),
     )
+
+
+def summarize_records_by_case(
+    records: list[BenchmarkRecord],
+) -> dict[str, BenchmarkSummary]:
+    if not records:
+        raise ValueError("No benchmark records provided.")
+
+    grouped_records: dict[str, list[BenchmarkRecord]] = {}
+
+    for record in records:
+        grouped_records.setdefault(
+            record.case_name,
+            [],
+        ).append(record)
+
+    return {
+        case_name: summarize_records(case_records)
+        for case_name, case_records in grouped_records.items()
+    }

@@ -39,7 +39,7 @@ ruff = ">=0.9,<1"
 
 
 [project.scripts]
-inferbench = "inferbench.cli:app"
+inferbench = "inferbench.cli:main"
 
 
 [build-system]
