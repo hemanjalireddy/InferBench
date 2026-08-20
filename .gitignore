@@ -1,0 +1,99 @@
+# ----------------------------
+# Python
+# ----------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ----------------------------
+# Virtual environments
+# ----------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# ----------------------------
+# Poetry / package build
+# ----------------------------
+dist/
+build/
+*.egg-info/
+
+# Keep poetry.lock committed
+# poetry.lock
+
+# ----------------------------
+# IDEs / editors
+# ----------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ----------------------------
+# OS files
+# ----------------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------------
+# Models / checkpoints
+# ----------------------------
+models/*
+!models/.gitkeep
+
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+
+# ----------------------------
+# Hugging Face / model caches
+# ----------------------------
+.cache/
+huggingface/
+hf_cache/
+
+# ----------------------------
+# InferBench benchmark outputs
+# ----------------------------
+results/*
+!results/.gitkeep
+
+# Generated reports
+*.html
+*.pdf
+
+# ----------------------------
+# Logs / profiling artifacts
+# ----------------------------
+*.log
+logs/
+
+torch_compile_debug/
+torchinductor_*/
+inductor_cache/
+
+# ----------------------------
+# Testing / coverage
+# ----------------------------
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ----------------------------
+# Ruff / type-checking cache
+# ----------------------------
+.ruff_cache/
+.mypy_cache/
+
+# ----------------------------
+# Environment variables
+# ----------------------------
+.env
+.env.*
+!.env.example

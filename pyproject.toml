@@ -1,0 +1,57 @@
+[project]
+name = "inferbench"
+version = "0.1.0"
+description = "A modular CPU LLM inference benchmarking and performance analysis framework."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+
+dependencies = [
+    "pydantic>=2.10,<3",
+    "PyYAML>=6.0,<7",
+    "psutil>=6.0,<8",
+    "py-cpuinfo>=9.0,<10",
+    "pandas>=2.2,<4",
+    "matplotlib>=3.9,<4",
+    "typer>=0.15,<1",
+    "rich>=13.9,<15",
+]
+
+
+[tool.poetry]
+packages = [
+    { include = "inferbench", from = "src" }
+]
+
+
+[tool.poetry.group.pytorch.dependencies]
+torch = ">=2.9,<3"
+transformers = ">=5.14,<6"
+
+
+[tool.poetry.group.dashboard.dependencies]
+streamlit = ">=1.61,<2"
+plotly = ">=6,<7"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8,<10"
+ruff = ">=0.9,<1"
+
+
+[project.scripts]
+inferbench = "inferbench.cli:app"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
